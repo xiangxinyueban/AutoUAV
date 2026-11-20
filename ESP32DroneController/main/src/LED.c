@@ -146,11 +146,11 @@ void led_breath_fade_task(void *pvParameters)
             }
         }
 
-        // 2046 ms 见下文解释；先用 WAIT_DONE，代码最简单
-        ESP_ERROR_CHECK(ledc_set_fade_with_time(LEDC_MODE, LEDC_CH, target, 200)); // 2046ms
-        ESP_ERROR_CHECK(ledc_fade_start(LEDC_MODE, LEDC_CH, LEDC_FADE_NO_WAIT));
+        // // 2046 ms 见下文解释；先用 WAIT_DONE，代码最简单
+        // ESP_ERROR_CHECK(ledc_set_fade_with_time(LEDC_MODE, LEDC_CH, target, 200)); // 2046ms
+        // ESP_ERROR_CHECK(ledc_fade_start(LEDC_MODE, LEDC_CH, LEDC_FADE_NO_WAIT));
 
-        target = (target == 0) ? LED_MAX_DUTY : 0;   // 反向
+        // target = (target == 0) ? LED_MAX_DUTY : 0;   // 反向
     }
 }
 
@@ -179,5 +179,5 @@ esp_err_t led_init(led_mode_id_t mode){
 }
 
 void IRAM_ATTR led_mode_switch(led_mode_id_t mode){
-    if (mode_queue) xQueueSend(mode_queue, &mode, 0);   // 非阻塞投递
+    if (mode_queue) xQueueSendFromISR(mode_queue, &mode, 0);   // 非阻塞投递
 }

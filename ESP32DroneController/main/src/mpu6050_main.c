@@ -14,6 +14,7 @@
 #include "mpu6050.h"
 #include "LED.h"
 #include "button.h"
+#include "oled.h"
 
 
 
@@ -21,6 +22,7 @@
 static const char *TAG = "mpu6050";
 static i2c_master_dev_handle_t s_mpu6050;
 static SemaphoreHandle_t mpu_data_ready_sem = NULL; //创建信号量
+static bool s_oled_ready;
 
 typedef struct {
     int16_t accel_x;
@@ -87,6 +89,12 @@ static esp_err_t mpu6050_init(bool enable_interrupt)
     // bus里面有互斥信号量 bus_lock_mux，保证了对总线的访问是线程安全的。这是一个二值信号量。通过：xSemaphoreCreateBinaryWithCaps 创建。
     ESP_RETURN_ON_ERROR(i2c_new_master_bus(&bus_config, &bus),
                         TAG, "I2C bus init failed");
+    esp_err_t oled_err = oled_lvgl_init(bus);
+    if (oled_err != ESP_OK) {
+        ESP_LOGW(TAG, "OLED LVGL initialization failed: %s", esp_err_to_name(oled_err));
+    } else {
+        s_oled_ready = true;
+    }
 
     uint16_t address = MPU6050_ADDR_AD0_LOW;
     esp_err_t probe_result = i2c_master_probe(bus, address, 100); // 代表100ms
@@ -169,11 +177,11 @@ static esp_err_t log_sample(const mpu6050_sample_t *sample)
     const int32_t gz = gz_mdps / 1000;
 
 
-    ESP_LOGI(TAG,
-             "Accel[g] X=%" PRId32 " Y=%" PRId32 " Z=%" PRId32
-             " | Gyro[dps] X=%" PRId32 " Y=%" PRId32 " Z=%" PRId32
-             " | Temp[1C]=%" PRId32,
-             ax, ay, az, gx, gy, gz, temperature_c);
+    // ESP_LOGI(TAG,
+    //          "Accel[g] X=%" PRId32 " Y=%" PRId32 " Z=%" PRId32
+    //          " | Gyro[dps] X=%" PRId32 " Y=%" PRId32 " Z=%" PRId32
+    //          " | Temp[1C]=%" PRId32,
+    //          ax, ay, az, gx, gy, gz, temperature_c);
     return ESP_OK;
 }
 
@@ -189,6 +197,13 @@ void mpu_data_task(void *pvParameters) {
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "Sensor read failed: %s", esp_err_to_name(err));
                 continue;
+            }
+            static int64_t last_oled_update_us;
+            const int64_t now_us = esp_timer_get_time();
+            if (s_oled_ready && now_us - last_oled_update_us >= 100000) {
+                oled_lvgl_update(sample.accel_x, sample.accel_y, sample.accel_z,
+                                 sample.gyro_x, sample.gyro_y, sample.gyro_z);
+                last_oled_update_us = now_us;
             }
             // ESP_LOGI(TAG, "Data ready, read sensor data successfully.");
             log_sample(&sample);
@@ -241,7 +256,7 @@ void app_main(void)
         return;
     }
     // 安装 GPIO 中断服务，并检查是否成功
-    err = gpio_install_isr_service(ESP_INTR_FLAG_IRAM); // ESP_INTR_FLAG_IRAM
+    // err = gpio_install_isr_service(ESP_INTR_FLAG_IRAM); // ESP_INTR_FLAG_IRAM
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "GPIO ISR service installation failed: %s", esp_err_to_name(err));
         return;
@@ -264,9 +279,8 @@ void app_main(void)
 
     mpu6050_sample_t sample;
     while (true) {
-        ESP_LOGI(TAG, "Count of interrupts: %u", s_isr_count);
+        // ESP_LOGI(TAG, "Count of interrupts: %u", s_isr_count);
         vTaskDelay(pdMS_TO_TICKS(500));
-        
     }
 
 }

@@ -30,7 +30,7 @@
   "clangd.arguments": [
     "--background-index",
     "--query-driver=**",
-    "--compile-commands-dir=d:\\ESP32Projects\\ESP32DroneController\\build"
+    "--compile-commands-dir=d:\\ESP32Projects\\AutoUAV\\ESP32DroneController\\build"
   ],
   "idf.port": "COM3",
   "idf.flashType": "UART"
